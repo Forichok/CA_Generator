@@ -27,58 +27,12 @@ import java.util.Scanner;
 
 public class App {
   public static void main(String[] args) {
-
     Scanner in = new Scanner(System.in);
-    String path = null;
-    Integer yearsLifetime = null;
-    X500Name rootCertIssuer = null;
-    String buff;
-    String filePass;
-    String keyStorePass;
-    while (path == null) {
-      System.out.println("Enter keystore file path to save:");
-      buff = in.nextLine();
-
-      if (new File(buff).exists()) {
-        System.out.printf("File with path %s already exists. Try again:\n", buff);
-        continue;
-      }
-      path = buff;
-    }
-
-    while (rootCertIssuer == null) {
-      System.out.println("Enter certificate directory name:");
-
-      buff = in.nextLine();
-
-      if (buff == null || buff.length() == 0) {
-        System.out.printf("Incorrect directory name %s", buff);
-        continue;
-      }
-
-      try {
-        rootCertIssuer = new X500Name(buff);
-      } catch (Exception e) {
-        System.out.println("Incorrect Dir Name");
-      }
-
-    }
-
-    while (yearsLifetime == null) {
-      System.out.println("Enter certificate lifetime in years:");
-      try {
-        yearsLifetime = in.nextInt();
-      } catch (Exception e) {
-        System.out.println("Incorrect input");
-      }
-    }
-
-    System.out.println("Enter keystore password:");
-    keyStorePass = in.next();
-
-    System.out.println("Enter p12 file password:");
-    filePass = in.next();
-
+    String path = getInputFilePath(in);
+    X500Name rootCertIssuer = getRootCertIssuer(in);
+    int yearsLifetime = getYearsLifetime(in);
+    String keyStorePass = getInput("Enter keystore password:", in);
+    String filePass = getInput("Enter p12 file password:", in);
     try {
       KeyStore keyStore = generateRootCertificateKeyStore(keyStorePass, rootCertIssuer, yearsLifetime);
       saveKeystoreToFile(path, keyStore, filePass);
@@ -87,13 +41,52 @@ public class App {
     }
   }
 
+  private static String getInputFilePath(Scanner in) {
+    String path;
+    do {
+      System.out.println("Enter keystore file path to save:");
+      path = in.nextLine();
+    } while (new File(path).exists());
+    return path;
+  }
+
+  private static X500Name getRootCertIssuer(Scanner in) {
+    X500Name rootCertIssuer = null;
+    while (rootCertIssuer == null) {
+      System.out.println("Enter certificate directory name, example: 1.2.643.3.131.1.1=7743001840,O=ООО ”ВК”,ST=Ленинградский пр-кт\\, д. 39\\, стр. 79,L=Москва,CN=ООО ”ВК”");
+      String buff = in.nextLine();
+      try {
+        rootCertIssuer = new X500Name(buff);
+      } catch (IllegalArgumentException e) {
+        System.out.println("Incorrect Dir Name");
+      }
+    }
+    return rootCertIssuer;
+  }
+
+  private static int getYearsLifetime(Scanner in) {
+    Integer yearsLifetime = null;
+    while (yearsLifetime == null) {
+      System.out.println("Enter certificate lifetime in years:");
+      try {
+        yearsLifetime = in.nextInt();
+      } catch (Exception e) {
+        System.out.println("Incorrect input");
+        in.nextLine();
+      }
+    }
+    return yearsLifetime;
+  }
+
+  private static String getInput(String prompt, Scanner in) {
+    System.out.println(prompt);
+    return in.next();
+  }
+
   private static KeyStore generateRootCertificateKeyStore(String keystorePassword, X500Name rootCertIssuer, int yearsLifetime)
       throws OperatorCreationException, IOException, NoSuchAlgorithmException, CertificateException,
-      NoSuchProviderException, InvalidAlgorithmParameterException, KeyStoreException {
+      NoSuchProviderException, KeyStoreException {
     Security.addProvider(new BouncyCastleProvider());
-
-//    KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("ECGOST3410-2012", "BC");
-//    keyPairGenerator.initialize(new ECGenParameterSpec("Tc26-Gost-3410-12-256-paramSetA"));
 
     KeyPairGenerator keyPairGenerator =
         KeyPairGenerator.getInstance("RSA", BouncyCastleProvider.PROVIDER_NAME);
@@ -111,7 +104,6 @@ public class App {
         new KeyStore.PasswordProtection(keystorePassword.toCharArray()));
     return keystore;
   }
-
 
   private static X509Certificate getX509Certificate(X500Name rootCertIssuer, int yearsLifetime, KeyPair keyPair) throws OperatorCreationException, NoSuchAlgorithmException, CertIOException, CertificateException {
     Calendar calendar = Calendar.getInstance();
@@ -151,5 +143,4 @@ public class App {
       keyStore.store(os, filePassword.toCharArray());
     }
   }
-
 }
